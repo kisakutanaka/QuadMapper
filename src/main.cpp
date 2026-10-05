@@ -206,6 +206,12 @@ unsigned patternTexture()
     return patternTex;
 }
 
+// Relative paths are relative to the app's directory, not the working directory.
+std::filesystem::path resolve(const std::filesystem::path& p)
+{
+    return p.is_absolute() ? p : platform::appDir() / p;
+}
+
 // Finds sel among mask vertices of o.
 bool selectedMaskVertex(Output& o, size_t& mi, size_t& vi)
 {
@@ -326,9 +332,9 @@ void gui(Receiver& rx, char* path, size_t pathSize)
     }
 
     ImGui::InputText("File", path, pathSize);
-    if (ImGui::Button("Save")) save(s, path);
+    if (ImGui::Button("Save")) save(s, resolve(path));
     ImGui::SameLine();
-    if (ImGui::Button("Load") && load(s, path)) {
+    if (ImGui::Button("Load") && load(s, resolve(path))) {
         rx.setSource(s.source);
         syncWindows();
         for (size_t i = 0; i < wins.size(); i++) applyOutput((int)i);
@@ -372,10 +378,10 @@ int main()
     ctrl = glfwCreateWindow(640, 800, "QuadMapper", nullptr, nullptr);
     if (!ctrl) return 1;
 
-    const auto settingsPath = platform::appDir() / "QuadMapper.json";
-    load(s, settingsPath);
+    const char* kSettings = "QuadMapper.json";
+    load(s, resolve(kSettings));
     char path[1024];
-    std::snprintf(path, sizeof path, "%s", settingsPath.string().c_str());
+    std::snprintf(path, sizeof path, "%s", kSettings);
 
     glfwMakeContextCurrent(ctrl);
     gladLoadGL(glfwGetProcAddress);
@@ -450,7 +456,7 @@ int main()
         glfwMakeContextCurrent(ctrl);
     }
 
-    save(s, settingsPath);
+    save(s, resolve(kSettings));
     rx.reset();
     s.outputs.clear();
     syncWindows();

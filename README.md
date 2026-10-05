@@ -27,6 +27,7 @@ ctest --test-dir build
 - マスクは多角形の内側を隠す。Insert point で選択頂点の次に点を追加
 - 設定は終了時に自動保存、起動時に復元
   (アプリの隣の `QuadMapper.json`。mac は .app と同じフォルダ、Windows は exe と同じフォルダ)
+- File 欄の相対パスはアプリと同じフォルダが基準 (既定 `QuadMapper.json`)
 
 ## 構成
 
