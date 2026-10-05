@@ -71,7 +71,7 @@ if(APPLE)
 
   target_sources(QuadMapper PRIVATE src/platform/mac/PlatformMac.mm)
   target_compile_options(QuadMapper PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
-  target_link_libraries(QuadMapper PRIVATE syphon)
+  target_link_libraries(QuadMapper PRIVATE syphon "-framework Security")
   set_target_properties(QuadMapper PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME QuadMapper
     MACOSX_BUNDLE_GUI_IDENTIFIER com.quadmapper.app)

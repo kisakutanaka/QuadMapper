@@ -99,13 +99,24 @@ private:
 
 }
 
+// Security.framework API (macOS 10.12+, not in public headers) to undo App Translocation.
+extern "C" Boolean SecTranslocateIsTranslocatedURL(CFURLRef path, bool* isTranslocated, CFErrorRef* error);
+extern "C" CFURLRef SecTranslocateCreateOriginalPathForURL(CFURLRef translocatedPath, CFErrorRef* error);
+
 namespace platform {
 
 std::unique_ptr<Receiver> createReceiver() { return std::make_unique<SyphonReceiver>(); }
 
 std::filesystem::path appDir()
 {
-    return std::filesystem::path(NSBundle.mainBundle.bundlePath.UTF8String).parent_path();
+    // A downloaded app opened in place runs from a read-only random copy; use where it really is.
+    NSURL* url = NSBundle.mainBundle.bundleURL;
+    bool translocated = false;
+    if (SecTranslocateIsTranslocatedURL((__bridge CFURLRef)url, &translocated, nullptr) && translocated) {
+        if (CFURLRef original = SecTranslocateCreateOriginalPathForURL((__bridge CFURLRef)url, nullptr))
+            url = CFBridgingRelease(original);
+    }
+    return std::filesystem::path(url.path.UTF8String).parent_path();
 }
 
 std::filesystem::path resourceDir() { return NSBundle.mainBundle.resourcePath.UTF8String; }
