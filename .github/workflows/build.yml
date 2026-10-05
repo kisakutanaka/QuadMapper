@@ -6,11 +6,11 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cmake -B build
       - run: cmake --build build --config Release
       - run: ctest --test-dir build -C Release --output-on-failure
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: QuadMapper-windows
           path: |
@@ -20,13 +20,13 @@ jobs:
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
       - run: cmake --build build
       - run: ctest --test-dir build --output-on-failure
       # Zipped with ditto: artifacts drop the executable bit and symlinks of a bare .app.
       - run: ditto -c -k --keepParent build/QuadMapper.app QuadMapper-macos.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: QuadMapper-macos
           path: QuadMapper-macos.zip
