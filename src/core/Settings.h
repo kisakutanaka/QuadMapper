@@ -8,7 +8,8 @@
 
 // All coordinates are normalized (0..1) with the origin at top-left.
 struct Output {
-    int monitor = 0;
+    std::string display;             // monitor name, empty: primary
+    std::array<int, 2> displayPos{};  // its desktop position, tells identical names apart
     bool fullscreen = false;
     std::array<Vec2, 4> corners{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};  // output quad TL TR BR BL
     std::array<float, 4> crop{0, 0, 1, 1};                          // source rect x0 y0 x1 y1

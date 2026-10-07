@@ -35,13 +35,32 @@ bool guides = true;
 Vec2* sel = nullptr;  // selected corner or mask vertex of s.outputs[cur]
 int dragView = -1;    // 0: preview, 1 + i: output window i
 
-void applyOutput(int i)
+// The saved display of o; by name if it moved, the primary one if it is not connected.
+GLFWmonitor* findMonitor(const Output& o)
 {
-    Output& o = s.outputs[i];
     int n;
     GLFWmonitor** mons = glfwGetMonitors(&n);
-    o.monitor = std::clamp(o.monitor, 0, n - 1);
-    GLFWmonitor* mon = mons[o.monitor];
+    GLFWmonitor* byName = nullptr;
+    for (int i = 0; i < n; i++) {
+        if (o.display != glfwGetMonitorName(mons[i])) continue;
+        int x, y;
+        glfwGetMonitorPos(mons[i], &x, &y);
+        if (x == o.displayPos[0] && y == o.displayPos[1]) return mons[i];
+        if (!byName) byName = mons[i];
+    }
+    return byName ? byName : glfwGetPrimaryMonitor();
+}
+
+void setDisplay(Output& o, GLFWmonitor* mon)
+{
+    o.display = glfwGetMonitorName(mon);
+    glfwGetMonitorPos(mon, &o.displayPos[0], &o.displayPos[1]);
+}
+
+void applyOutput(int i)
+{
+    const Output& o = s.outputs[i];
+    GLFWmonitor* mon = findMonitor(o);
     if (o.fullscreen) {
         const GLFWvidmode* vm = glfwGetVideoMode(mon);
         glfwSetWindowMonitor(wins[i].win, mon, 0, 0, vm->width, vm->height, vm->refreshRate);
@@ -258,8 +277,10 @@ void gui(Receiver& rx, char* path, size_t pathSize)
     }
     if (s.outputs.size() < kMaxOutputs) {
         if (ImGui::Button("Add output")) {
+            int n;
+            GLFWmonitor** mons = glfwGetMonitors(&n);
             s.outputs.push_back(Output{});
-            s.outputs.back().monitor = (int)s.outputs.size() - 1;
+            setDisplay(s.outputs.back(), mons[std::min(1, n - 1)]);
             syncWindows();
             cur = (int)s.outputs.size() - 1;
         }
@@ -269,13 +290,22 @@ void gui(Receiver& rx, char* path, size_t pathSize)
     ImGui::Separator();
 
     Output& o = s.outputs[cur];
-    int n;
-    GLFWmonitor** mons = glfwGetMonitors(&n);
-    if (ImGui::BeginCombo("Monitor", glfwGetMonitorName(mons[std::clamp(o.monitor, 0, n - 1)]))) {
+    // Listed with desktop positions so identical projectors can be told apart.
+    auto displayLabel = [](GLFWmonitor* m) {
+        int x, y;
+        glfwGetMonitorPos(m, &x, &y);
+        char label[256];
+        std::snprintf(label, sizeof label, "%s (%d, %d)", glfwGetMonitorName(m), x, y);
+        return std::string(label);
+    };
+    GLFWmonitor* shown = findMonitor(o);
+    if (ImGui::BeginCombo("Display", displayLabel(shown).c_str())) {
+        int n;
+        GLFWmonitor** mons = glfwGetMonitors(&n);
         for (int i = 0; i < n; i++) {
             ImGui::PushID(i);
-            if (ImGui::Selectable(glfwGetMonitorName(mons[i]), i == o.monitor)) {
-                o.monitor = i;
+            if (ImGui::Selectable(displayLabel(mons[i]).c_str(), mons[i] == shown)) {
+                setDisplay(o, mons[i]);
                 applyOutput(cur);
             }
             ImGui::PopID();
@@ -391,6 +421,10 @@ int main()
     auto rx = platform::createReceiver();
     rx->setSource(s.source);
     syncWindows();
+    // Follow displays being plugged in or out.
+    glfwSetMonitorCallback([](GLFWmonitor*, int) {
+        for (size_t i = 0; i < wins.size(); i++) applyOutput((int)i);
+    });
 
     ImGui::CreateContext();
     ImGui::GetIO().IniFilename = nullptr;
