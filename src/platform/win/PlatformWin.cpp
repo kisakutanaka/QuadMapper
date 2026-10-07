@@ -2,6 +2,13 @@
 
 #include <SpoutReceiver.h>
 
+// Hybrid-GPU machines: run on the discrete GPU, where senders usually render.
+// Spout cannot share textures across GPUs. Read by the NVIDIA / AMD drivers from the exe.
+extern "C" {
+__declspec(dllexport) unsigned long NvOptimusEnablement = 1;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 namespace {
 
 class SpoutRx : public Receiver {
