@@ -22,6 +22,7 @@ uniform int rotation;  // quarter turns clockwise
 uniform bvec2 flip;
 uniform vec4 blend;  // edge width L T R B
 uniform float gamma;
+uniform vec4 brightness;  // at corners TL TR BR BL
 uniform sampler2D tex;
 out vec4 color;
 void main() {
@@ -34,7 +35,8 @@ void main() {
     vec3 c = texture(tex, vec2(s.x, 1.0 - s.y)).rgb;
     // Linear ramp in light, encoded for the projector gamma.
     vec4 e = clamp(vec4(uv, 1.0 - uv) / max(blend, 1e-6), 0.0, 1.0);
-    color = vec4(c * pow(e.x * e.y * e.z * e.w, 1.0 / gamma), 1.0);
+    float b = mix(mix(brightness.x, brightness.y, uv.x), mix(brightness.w, brightness.z, uv.x), uv.y);
+    color = vec4(c * b * pow(e.x * e.y * e.z * e.w, 1.0 / gamma), 1.0);
 })";
 
 const char* kSolidFrag = R"(#version 330 core
@@ -138,6 +140,7 @@ void Renderer::setMapUniforms(const Output& o, int w, int h) const
     glUniform2i(glGetUniformLocation(mapProg_, "flip"), o.flipH, o.flipV);
     glUniform4fv(glGetUniformLocation(mapProg_, "blend"), 1, o.blend.data());
     glUniform1f(glGetUniformLocation(mapProg_, "gamma"), o.gamma);
+    glUniform4fv(glGetUniformLocation(mapProg_, "brightness"), 1, o.brightness.data());
     glUniform1i(glGetUniformLocation(mapProg_, "tex"), 0);
 }
 

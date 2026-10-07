@@ -329,6 +329,10 @@ void gui(Receiver& rx, char* path, size_t pathSize)
         ImGui::DragFloat4("L T R B", o.blend.data(), 0.001f, 0.0f, 0.5f);
         ImGui::DragFloat("Gamma", &o.gamma, 0.01f, 0.1f, 4.0f);
     }
+    if (ImGui::CollapsingHeader("Brightness")) {
+        ImGui::SliderFloat4("TL TR BR BL", o.brightness.data(), 0.0f, 1.0f);
+        if (ImGui::Button("Reset brightness")) o.brightness = Output{}.brightness;
+    }
     if (ImGui::CollapsingHeader("Masks")) {
         size_t mi, vi;
         const bool onMask = selectedMaskVertex(o, mi, vi);

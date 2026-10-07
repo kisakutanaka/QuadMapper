@@ -17,6 +17,7 @@ struct Output {
     bool flipH = false, flipV = false;                              // applied in output orientation
     std::array<float, 4> blend{0, 0, 0, 0};                         // edge width L T R B (quad space)
     float gamma = 2.2f;
+    std::array<float, 4> brightness{1, 1, 1, 1};  // at corners TL TR BR BL, interpolated between
     std::vector<std::vector<Vec2>> masks;  // output-space polygons to hide
 };
 

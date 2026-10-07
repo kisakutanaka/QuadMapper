@@ -9,7 +9,7 @@ void to_json(json& j, const Vec2& v) { j = {v.x, v.y}; }
 void from_json(const json& j, Vec2& v) { v = {j.at(0).get<float>(), j.at(1).get<float>()}; }
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Output, display, displayPos, fullscreen, corners, crop, rotation, flipH, flipV, blend, gamma,
-                                                masks)
+                                                brightness, masks)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Settings, source, pattern, outputs)
 
 bool save(const Settings& s, const std::filesystem::path& path)
