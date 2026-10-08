@@ -40,14 +40,18 @@ std::vector<std::filesystem::path> patterns;
 unsigned patternTex = 0;
 std::string patternLoaded;
 
+bool placing = false;  // while applyOutput moves windows; the saved rect is not overwritten
+
 void applyOutput(int i)
 {
-    const auto r = s.outputs[i].window;  // copied: the calls below report back through callbacks
+    const Output& o = s.outputs[i];
     GLFWwindow* w = wins[i].win;
-    glfwSetWindowAttrib(w, GLFW_DECORATED, !s.outputs[i].borderless);
-    platform::keepOnTop(w, s.outputs[i].borderless);
-    glfwSetWindowPos(w, r[0], r[1]);
-    glfwSetWindowSize(w, r[2], r[3]);
+    placing = true;
+    glfwSetWindowAttrib(w, GLFW_DECORATED, !o.borderless);
+    platform::keepOnTop(w, o.borderless);
+    // Twice: moving onto a display with another scale lets the OS adjust the rect once.
+    for (int k = 0; k < 2; k++) glfwSetWindowMonitor(w, nullptr, o.window[0], o.window[1], o.window[2], o.window[3], 0);
+    placing = false;
 }
 
 void selectOutput(int i)
@@ -158,13 +162,13 @@ void syncWindows()
         glfwSetKeyCallback(w.win, onKey);
         // Moving or resizing the window by hand updates its saved rect.
         glfwSetWindowPosCallback(w.win, [](GLFWwindow* w, int x, int y) {
-            if (const int i = indexOf(w); i >= 0) {
+            if (const int i = indexOf(w); i >= 0 && !placing) {
                 s.outputs[i].window[0] = x;
                 s.outputs[i].window[1] = y;
             }
         });
         glfwSetWindowSizeCallback(w.win, [](GLFWwindow* w, int cx, int cy) {
-            if (const int i = indexOf(w); i >= 0 && cx > 0 && cy > 0) {
+            if (const int i = indexOf(w); i >= 0 && !placing && cx > 0 && cy > 0) {
                 s.outputs[i].window[2] = cx;
                 s.outputs[i].window[3] = cy;
             }
@@ -327,7 +331,10 @@ void gui(Receiver& rx, char* path, size_t pathSize)
 
     if (ImGui::CollapsingHeader("Corners", ImGuiTreeNodeFlags_DefaultOpen)) {
         const char* labels[] = {"Top left", "Top right", "Bottom right", "Bottom left"};
-        for (int i = 0; i < 4; i++) ImGui::DragFloat2(labels[i], &o.corners[i].x, 0.001f);
+        for (int i = 0; i < 4; i++) {
+            ImGui::DragFloat2(labels[i], &o.corners[i].x, 0.001f);
+            if (ImGui::IsItemActivated()) sel = &o.corners[i];  // then arrow keys move it
+        }
         if (ImGui::Button("Reset corners")) o.corners = Output{}.corners;
     }
     if (ImGui::CollapsingHeader("Source crop"))
@@ -487,7 +494,6 @@ int main()
         glfwMakeContextCurrent(ctrl);
     }
 
-    save(s, resolve(kSettings));
     rx.reset();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
