@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+struct GLFWwindow;
+
 // Receives a texture shared by another application (Syphon / Spout).
 class Receiver {
 public:
@@ -25,4 +27,6 @@ std::unique_ptr<Receiver> createReceiver();
 std::filesystem::path appDir();
 // Bundled read-only data (mac: .app/Contents/Resources, win: exe directory).
 std::filesystem::path resourceDir();
+// Keeps an output window above the menu bar (mac) / taskbar (win).
+void keepOnTop(GLFWwindow* w, bool onTop);
 }

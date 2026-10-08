@@ -8,9 +8,8 @@
 
 // All coordinates are normalized (0..1) with the origin at top-left.
 struct Output {
-    std::string display;             // monitor name, empty: primary
-    std::array<int, 2> displayPos{};  // its desktop position, tells identical names apart
-    bool fullscreen = false;
+    std::array<int, 4> window{100, 100, 960, 540};  // x y w h in desktop coordinates
+    bool borderless = false;                       // no title bar, for projectors
     std::array<Vec2, 4> corners{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};  // output quad TL TR BR BL
     std::array<float, 4> crop{0, 0, 1, 1};                          // source rect x0 y0 x1 y1
     int rotation = 0;                                               // source quarter turns clockwise

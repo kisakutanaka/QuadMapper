@@ -1,12 +1,15 @@
 #define GL_SILENCE_DEPRECATION
 #include "platform/Platform.h"
 
-#import <Foundation/Foundation.h>
+#import <Cocoa/Cocoa.h>
 #import <OpenGL/OpenGL.h>
 #import <OpenGL/gl3.h>
 #import <Syphon/SyphonOpenGLClient.h>
 #import <Syphon/SyphonOpenGLImage.h>
 #import <Syphon/SyphonServerDirectory.h>
+#define GLFW_EXPOSE_NATIVE_COCOA
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
 
 namespace {
 
@@ -120,5 +123,11 @@ std::filesystem::path appDir()
 }
 
 std::filesystem::path resourceDir() { return NSBundle.mainBundle.resourcePath.UTF8String; }
+
+void keepOnTop(GLFWwindow* w, bool onTop)
+{
+    NSWindow* window = glfwGetCocoaWindow(w);
+    window.level = onTop ? NSMainMenuWindowLevel + 1 : NSNormalWindowLevel;
+}
 
 }

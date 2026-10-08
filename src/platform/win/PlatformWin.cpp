@@ -1,6 +1,8 @@
 #include "platform/Platform.h"
 
 #include <SpoutReceiver.h>
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 // Hybrid-GPU machines: run on the discrete GPU, where senders usually render.
 // Spout cannot share textures across GPUs. Read by the NVIDIA / AMD drivers from the exe.
@@ -48,6 +50,8 @@ public:
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w_, h_, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
     unsigned texture() const override { return w_ ? tex_ : 0; }
@@ -75,5 +79,7 @@ std::filesystem::path appDir()
 }
 
 std::filesystem::path resourceDir() { return appDir(); }
+
+void keepOnTop(GLFWwindow* w, bool onTop) { glfwSetWindowAttrib(w, GLFW_FLOATING, onTop); }
 
 }

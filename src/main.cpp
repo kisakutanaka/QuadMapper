@@ -6,9 +6,9 @@
 #include <imgui_impl_opengl3.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
-#include <cctype>
 #include <cstdio>
 #include <utility>
 
@@ -35,40 +35,19 @@ bool guides = true;
 Vec2* sel = nullptr;  // selected corner or mask vertex of s.outputs[cur]
 int dragView = -1;    // 0: preview, 1 + i: output window i
 
-// The saved display of o; by name if it moved, the primary one if it is not connected.
-GLFWmonitor* findMonitor(const Output& o)
-{
-    int n;
-    GLFWmonitor** mons = glfwGetMonitors(&n);
-    GLFWmonitor* byName = nullptr;
-    for (int i = 0; i < n; i++) {
-        if (o.display != glfwGetMonitorName(mons[i])) continue;
-        int x, y;
-        glfwGetMonitorPos(mons[i], &x, &y);
-        if (x == o.displayPos[0] && y == o.displayPos[1]) return mons[i];
-        if (!byName) byName = mons[i];
-    }
-    return byName ? byName : glfwGetPrimaryMonitor();
-}
-
-void setDisplay(Output& o, GLFWmonitor* mon)
-{
-    o.display = glfwGetMonitorName(mon);
-    glfwGetMonitorPos(mon, &o.displayPos[0], &o.displayPos[1]);
-}
+// Test pattern images, sorted by file name.
+std::vector<std::filesystem::path> patterns;
+unsigned patternTex = 0;
+std::string patternLoaded;
 
 void applyOutput(int i)
 {
-    const Output& o = s.outputs[i];
-    GLFWmonitor* mon = findMonitor(o);
-    if (o.fullscreen) {
-        const GLFWvidmode* vm = glfwGetVideoMode(mon);
-        glfwSetWindowMonitor(wins[i].win, mon, 0, 0, vm->width, vm->height, vm->refreshRate);
-    } else {
-        int x, y;
-        glfwGetMonitorPos(mon, &x, &y);
-        glfwSetWindowMonitor(wins[i].win, nullptr, x + 50 + i * 50, y + 50 + i * 50, 960, 540, 0);
-    }
+    const auto r = s.outputs[i].window;  // copied: the calls below report back through callbacks
+    GLFWwindow* w = wins[i].win;
+    glfwSetWindowAttrib(w, GLFW_DECORATED, !s.outputs[i].borderless);
+    platform::keepOnTop(w, s.outputs[i].borderless);
+    glfwSetWindowPos(w, r[0], r[1]);
+    glfwSetWindowSize(w, r[2], r[3]);
 }
 
 void selectOutput(int i)
@@ -132,15 +111,16 @@ int indexOf(GLFWwindow* w)
 {
     for (size_t i = 0; i < wins.size(); i++)
         if (wins[i].win == w) return (int)i;
-    return 0;
+    return -1;
 }
 
 void onKey(GLFWwindow* w, int k, int, int action, int mods)
 {
     if (action == GLFW_RELEASE) return;
     const int i = indexOf(w);
-    if (k == GLFW_KEY_ESCAPE && s.outputs[i].fullscreen) {
-        s.outputs[i].fullscreen = false;
+    if (i < 0) return;
+    if (k == GLFW_KEY_ESCAPE && s.outputs[i].borderless) {
+        s.outputs[i].borderless = false;
         applyOutput(i);
     }
     selectOutput(i);
@@ -157,14 +137,17 @@ void setVsync()
     glfwMakeContextCurrent(ctrl);
 }
 
-// Opens or closes windows to match s.outputs. Call with ctrl current.
+void closeWindow(int i)
+{
+    renderer.destroy(wins[i].canvas);
+    glfwDestroyWindow(wins[i].win);
+    wins.erase(wins.begin() + i);
+}
+
+// Opens or closes windows to match s.outputs and places them. Call with ctrl current.
 void syncWindows()
 {
-    while (wins.size() > s.outputs.size()) {
-        renderer.destroy(wins.back().canvas);
-        glfwDestroyWindow(wins.back().win);
-        wins.pop_back();
-    }
+    while (wins.size() > s.outputs.size()) closeWindow((int)wins.size() - 1);
     while (wins.size() < s.outputs.size()) {
         char title[32];
         std::snprintf(title, sizeof title, "Output %zu", wins.size() + 1);
@@ -173,9 +156,22 @@ void syncWindows()
         glfwMakeContextCurrent(w.win);
         w.vao = renderer.makeVao();
         glfwSetKeyCallback(w.win, onKey);
+        // Moving or resizing the window by hand updates its saved rect.
+        glfwSetWindowPosCallback(w.win, [](GLFWwindow* w, int x, int y) {
+            if (const int i = indexOf(w); i >= 0) {
+                s.outputs[i].window[0] = x;
+                s.outputs[i].window[1] = y;
+            }
+        });
+        glfwSetWindowSizeCallback(w.win, [](GLFWwindow* w, int cx, int cy) {
+            if (const int i = indexOf(w); i >= 0 && cx > 0 && cy > 0) {
+                s.outputs[i].window[2] = cx;
+                s.outputs[i].window[3] = cy;
+            }
+        });
         wins.push_back(w);
-        applyOutput((int)wins.size() - 1);
     }
+    for (size_t i = 0; i < wins.size(); i++) applyOutput((int)i);
     setVsync();
     cur = std::min(cur, (int)wins.size() - 1);
     sel = nullptr;
@@ -184,18 +180,10 @@ void syncWindows()
 
 void removeOutput(int i)
 {
-    renderer.destroy(wins[i].canvas);
-    glfwDestroyWindow(wins[i].win);
-    wins.erase(wins.begin() + i);
+    closeWindow(i);
     s.outputs.erase(s.outputs.begin() + i);
-    glfwMakeContextCurrent(ctrl);
     syncWindows();
 }
-
-// Test pattern images, sorted by file name.
-std::vector<std::filesystem::path> patterns;
-unsigned patternTex = 0;
-std::string patternLoaded;
 
 void scanPatterns()
 {
@@ -229,6 +217,21 @@ unsigned patternTexture()
 std::filesystem::path resolve(const std::filesystem::path& p)
 {
     return p.is_absolute() ? p : platform::appDir() / p;
+}
+
+// Dragging points directly on output window i.
+void outputMouse(int i)
+{
+    OutputWindow& w = wins[i];
+    const bool down = glfwGetMouseButton(w.win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    int ww, wh;
+    glfwGetWindowSize(w.win, &ww, &wh);
+    if (guides && ww > 0 && wh > 0 && (down || w.wasDown)) {
+        double mx, my;
+        glfwGetCursorPos(w.win, &mx, &my);
+        pointer(1 + i, i, {float(mx / ww), float(my / wh)}, down && !w.wasDown, down, ww, wh);
+    }
+    w.wasDown = down;
 }
 
 // Finds sel among mask vertices of o.
@@ -277,10 +280,10 @@ void gui(Receiver& rx, char* path, size_t pathSize)
     }
     if (s.outputs.size() < kMaxOutputs) {
         if (ImGui::Button("Add output")) {
-            int n;
-            GLFWmonitor** mons = glfwGetMonitors(&n);
-            s.outputs.push_back(Output{});
-            setDisplay(s.outputs.back(), mons[std::min(1, n - 1)]);
+            Output o;
+            o.window[0] += 50;
+            o.window[1] += 50;
+            s.outputs.push_back(o);
             syncWindows();
             cur = (int)s.outputs.size() - 1;
         }
@@ -290,29 +293,33 @@ void gui(Receiver& rx, char* path, size_t pathSize)
     ImGui::Separator();
 
     Output& o = s.outputs[cur];
-    // Listed with desktop positions so identical projectors can be told apart.
-    auto displayLabel = [](GLFWmonitor* m) {
-        int x, y;
-        glfwGetMonitorPos(m, &x, &y);
-        char label[256];
-        std::snprintf(label, sizeof label, "%s (%d, %d)", glfwGetMonitorName(m), x, y);
-        return std::string(label);
-    };
-    GLFWmonitor* shown = findMonitor(o);
-    if (ImGui::BeginCombo("Display", displayLabel(shown).c_str())) {
+    if (ImGui::DragInt4("x y w h", o.window.data())) {
+        o.window[2] = std::max(o.window[2], 1);
+        o.window[3] = std::max(o.window[3], 1);
+        applyOutput(cur);
+    }
+    if (ImGui::Checkbox("Borderless", &o.borderless)) applyOutput(cur);
+    ImGui::SameLine();
+    // Copies a display's rect into x y w h; only the numbers are saved.
+    if (ImGui::BeginCombo("Fit to", "display")) {
         int n;
         GLFWmonitor** mons = glfwGetMonitors(&n);
         for (int i = 0; i < n; i++) {
+            int x, y;
+            glfwGetMonitorPos(mons[i], &x, &y);
+            const GLFWvidmode* vm = glfwGetVideoMode(mons[i]);
+            char label[256];
+            std::snprintf(label, sizeof label, "%s (%d, %d) %dx%d", glfwGetMonitorName(mons[i]), x, y, vm->width,
+                          vm->height);
             ImGui::PushID(i);
-            if (ImGui::Selectable(displayLabel(mons[i]).c_str(), mons[i] == shown)) {
-                setDisplay(o, mons[i]);
+            if (ImGui::Selectable(label)) {
+                o.window = {x, y, vm->width, vm->height};
                 applyOutput(cur);
             }
             ImGui::PopID();
         }
         ImGui::EndCombo();
     }
-    if (ImGui::Checkbox("Fullscreen", &o.fullscreen)) applyOutput(cur);
     ImGui::Combo("Rotation", &o.rotation, "0\0" "90\0" "180\0" "270\0");
     ImGui::Checkbox("Flip H", &o.flipH);
     ImGui::SameLine();
@@ -371,7 +378,6 @@ void gui(Receiver& rx, char* path, size_t pathSize)
     if (ImGui::Button("Load") && load(s, resolve(path))) {
         rx.setSource(s.source);
         syncWindows();
-        for (size_t i = 0; i < wins.size(); i++) applyOutput((int)i);
     }
 
     // Preview of the current output; points can be dragged here too.
@@ -425,10 +431,6 @@ int main()
     auto rx = platform::createReceiver();
     rx->setSource(s.source);
     syncWindows();
-    // Follow displays being plugged in or out.
-    glfwSetMonitorCallback([](GLFWmonitor*, int) {
-        for (size_t i = 0; i < wins.size(); i++) applyOutput((int)i);
-    });
 
     ImGui::CreateContext();
     ImGui::GetIO().IniFilename = nullptr;
@@ -453,17 +455,8 @@ int main()
         rx->update();
         const unsigned source = s.source.empty() ? patternTexture() : rx->texture();
         for (size_t i = 0; i < wins.size(); i++) {
+            outputMouse((int)i);
             OutputWindow& w = wins[i];
-            const bool down = glfwGetMouseButton(w.win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-            int ww, wh;
-            glfwGetWindowSize(w.win, &ww, &wh);
-            if (guides && ww > 0 && wh > 0 && (down || w.wasDown)) {
-                double mx, my;
-                glfwGetCursorPos(w.win, &mx, &my);
-                pointer(1 + (int)i, (int)i, {float(mx / ww), float(my / wh)}, down && !w.wasDown, down, ww, wh);
-            }
-            w.wasDown = down;
-
             int fw, fh;
             glfwGetFramebufferSize(w.win, &fw, &fh);
             if (fw > 0 && fh > 0 && (fw != w.canvas.w || fh != w.canvas.h)) renderer.resize(w.canvas, fw, fh);
@@ -496,8 +489,6 @@ int main()
 
     save(s, resolve(kSettings));
     rx.reset();
-    s.outputs.clear();
-    syncWindows();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
