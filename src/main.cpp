@@ -31,7 +31,6 @@ GLFWwindow* ctrl = nullptr;
 Renderer renderer;
 std::vector<OutputWindow> wins;  // wins[i] shows s.outputs[i]
 int cur = 0;                     // output edited in the GUI
-bool guides = true;
 Vec2* sel = nullptr;  // selected corner or mask vertex of s.outputs[cur]
 int dragView = -1;    // 0: preview, 1 + i: output window i
 
@@ -230,7 +229,7 @@ void outputMouse(int i)
     const bool down = glfwGetMouseButton(w.win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     int ww, wh;
     glfwGetWindowSize(w.win, &ww, &wh);
-    if (guides && ww > 0 && wh > 0 && (down || w.wasDown)) {
+    if (s.guides && ww > 0 && wh > 0 && (down || w.wasDown)) {
         double mx, my;
         glfwGetCursorPos(w.win, &mx, &my);
         pointer(1 + i, i, {float(mx / ww), float(my / wh)}, down && !w.wasDown, down, ww, wh);
@@ -274,7 +273,7 @@ void gui(Receiver& rx, char* path, size_t pathSize)
     }
     ImGui::SameLine();
     ImGui::Text("%dx%d", rx.width(), rx.height());
-    ImGui::Checkbox("Guides", &guides);
+    ImGui::Checkbox("Guides", &s.guides);
 
     for (int i = 0; i < (int)s.outputs.size(); i++) {
         char label[32];
@@ -467,7 +466,7 @@ int main()
             int fw, fh;
             glfwGetFramebufferSize(w.win, &fw, &fh);
             if (fw > 0 && fh > 0 && (fw != w.canvas.w || fh != w.canvas.h)) renderer.resize(w.canvas, fw, fh);
-            renderer.render(w.canvas, s.outputs[i], source, guides, sel);
+            renderer.render(w.canvas, s.outputs[i], source, s.guides, sel);
         }
 
         ImGui_ImplOpenGL3_NewFrame();

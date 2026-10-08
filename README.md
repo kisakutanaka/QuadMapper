@@ -27,7 +27,7 @@ ctest --test-dir build
 - 出力窓で Esc: Borderless 解除
 - 矢印キーで選択点を 1px (Shift で 10px) 移動、Tab で隅を順に選択
 - マスクは多角形の内側を隠す。Insert point で選択頂点の次に点を追加
-- 設定は Save を押したときだけ保存。起動時に `QuadMapper.json` を読み込む
+- 設定 (Guides のオン/オフ含む) は Save を押したときだけ保存。起動時に `QuadMapper.json` を読み込む
   (アプリの隣の `QuadMapper.json`。mac は .app と同じフォルダ、Windows は exe と同じフォルダ)
 - File 欄の相対パスはアプリと同じフォルダが基準 (既定 `QuadMapper.json`)
 

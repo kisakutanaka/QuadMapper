@@ -10,7 +10,7 @@ void from_json(const json& j, Vec2& v) { v = {j.at(0).get<float>(), j.at(1).get<
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(Output, window, borderless, corners, crop, rotation, flipH, flipV,
                                                   blend, gamma, brightness, masks)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(Settings, source, pattern, outputs)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_ONLY_SERIALIZE(Settings, source, pattern, guides, outputs)
 
 namespace {
 
@@ -47,6 +47,7 @@ void from_json(const json& j, Settings& s)
 {
     read(j, "source", s.source);
     read(j, "pattern", s.pattern);
+    read(j, "guides", s.guides);
     read(j, "outputs", s.outputs);
 }
 

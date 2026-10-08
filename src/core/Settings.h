@@ -25,6 +25,7 @@ constexpr size_t kMaxOutputs = 2;
 struct Settings {
     std::string source;   // empty: test pattern
     std::string pattern;  // test pattern file name
+    bool guides = true;   // outlines and handles on the outputs
     std::vector<Output> outputs{Output{}};  // 1..kMaxOutputs
 };
 
